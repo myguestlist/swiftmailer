@@ -44,7 +44,7 @@ class Swift_Encoding
      */
     public static function getQpEncoding()
     {
-        return self::_lookup('mime.qpcontentencoder');
+        return self::_lookup('mime.mglqpcontentencoder');
     }
 
     /**
