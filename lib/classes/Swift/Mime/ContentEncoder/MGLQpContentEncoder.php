@@ -114,11 +114,11 @@ class Swift_Mime_ContentEncoder_MGLQpContentEncoder implements Swift_Mime_Conten
             
             // Check returned value for error and default to PHP quoted printable function
             if ($return_value > 0)
-               $qpstring = $this->_quoted_printable_encode($string);
+               $qpstring = $this->_quoted_printable_encode($this->_standardize($string));
         }
         else
         {
-            $qpstring = $this->_quoted_printable_encode($string);
+            $qpstring = $this->_quoted_printable_encode($this->_standardize($string));
         }
 
         return $qpstring;
@@ -155,7 +155,8 @@ class Swift_Mime_ContentEncoder_MGLQpContentEncoder implements Swift_Mime_Conten
         $hex = array('0','1','2','3','4','5','6','7',
                 '8','9','A','B','C','D','E','F');
         $lines = preg_split("/(?:\r\n|\r|\n)/", $input);
-        $linebreak = "=0D=0A=\r\n";
+        //$linebreak = "=0D=0A=\r\n";
+        $linebreak = "=\r\n";
         /* the linebreak also counts as characters in the mime_qp_long_line
          * rule of spam-assassin */
         $line_max = $line_max - strlen($linebreak);
