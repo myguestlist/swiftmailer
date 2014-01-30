@@ -91,32 +91,15 @@ class Swift_Mime_ContentEncoder_MGLQpContentEncoder implements Swift_Mime_Conten
     {
         $qpstring = '';
 
-        // Open the qprint process and get a handle to it
-        $process = proc_open('/usr/local/bin/qprint -e -', $this->descriptorspec, $pipes, '/tmp');
+        // Write email to temp file to be passed into print function
+        $tmp_file = "/tmp/" . uniqid('qp', true);
+        file_put_contents($tmp_file, $this->_standardize($string)); 
 
-        // Check the process was opened OK. Otherwise default to PHP quoted printable function
-        if (is_resource($process))
-        {
-            // $pipes now looks like this:
-            // 0 => writeable handle connected to child stdin
-            // 1 => readable handle connected to child stdout
-            // Any error output will be appended to /tmp/error-output.txt
-      
-            fwrite($pipes[0], $this->_standardize($string));
-            fclose($pipes[0]);
+        // Execute command line qprint and get output
+        $qpstring = shell_exec("/usr/local/bin/qprint -e {$tmp_file} 2> /dev/null");
 
-            $qpstring = stream_get_contents($pipes[1]);
-            fclose($pipes[1]);
-
-            // It is important that you close any pipes before calling
-            // proc_close in order to avoid a deadlock
-            $return_value = proc_close($process);
-            
-            // Check returned value for error and default to PHP quoted printable function
-            if ($return_value > 0)
-               $qpstring = $this->_quoted_printable_encode($this->_standardize($string));
-        }
-        else
+        // Check the output is OK. Otherwise default to PHP quoted printable function
+        if (empty($qpstring))
         {
             $qpstring = $this->_quoted_printable_encode($this->_standardize($string));
         }
