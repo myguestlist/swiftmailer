@@ -98,6 +98,8 @@ class Swift_Mime_ContentEncoder_MGLQpContentEncoder implements Swift_Mime_Conten
         // Execute command line qprint and get output
         $qpstring = shell_exec("/usr/local/bin/qprint -e {$tmp_file} 2> /dev/null");
 
+        unlink($tmp_file);
+
         // Check the output is OK. Otherwise default to PHP quoted printable function
         if (empty($qpstring))
         {
