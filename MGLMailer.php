@@ -160,22 +160,23 @@ class MGLMailer
             }
             catch (Exception $e)
             {
-               if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
-               {
+               //if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
+               //if (stristr($e->getMessage(), 'Expected response code'))
+               //{
                   $transport = Swift_SmtpTransport::newInstance("in.mailjet.com", 25)
                      ->setUsername($this->apikey)
                      ->setPassword($this->secret);
                   $this->mailjet = Swift_Mailer::newInstance($transport);
                   $this->mailjet->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
-               }
-               else
-               {
+               //}
+               //else
+               //{
                   return array(
                      'result' => false,
                      'email' => '',
                      'exception' => $e->getMessage()
                   );
-               }
+               //}
             }
 
             break;
@@ -238,8 +239,9 @@ class MGLMailer
             }
             catch (Exception $e)
             {
-               if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
-               {
+               //if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
+               //if (stristr($e->getMessage(), 'Expected response code'))
+               //{
                   global $INSERMO_HOST;
                   global $INSERMO_USERNAME;
                   global $INSERMO_PASSWORD;
@@ -249,15 +251,15 @@ class MGLMailer
                      ->setPassword($INSERMO_PASSWORD);
                   $this->insermo = Swift_Mailer::newInstance($transport);
                   $this->insermo->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
-               }
-               else
-               {
+               //}
+               //else
+               //{
                   return array(
                      'result' => false,
                      'email' => '',
                      'exception' => $e->getMessage()
                   );
-               }
+               //}
             }
 
             break;
