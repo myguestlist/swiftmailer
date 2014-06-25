@@ -1,10 +1,6 @@
 <?php
 require_once 'lib/swift_required.php';
 
-$SMPRO_HOST = 'smtp.smartmailpro.com';
-$SMPRO_USER = "FKFULr9CDDxf1QOz";
-$SMPRO_PWORD = "2Kb58yKt3gdxNr9f";
-
 class MGLMailer
 {
    private $lhost = null;
@@ -114,7 +110,10 @@ class MGLMailer
          case 'smpro' :
             try
             {
-               $result = $this->smpro->send($message, $failures);
+               $headers = $message->getHeaders();
+               $list_id = $headers->get('X-Listid');
+               $list_id->setValue('MGL');
+               $result = $this->smpro->send($message, $failures); global $mail; $mail->notice($this->logger->dump());
             }
             catch (Exception $e)
             {
