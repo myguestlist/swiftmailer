@@ -43,7 +43,7 @@ class Mailer
             $this->tb_name = mysql_result($result, 0, "username");
             $this->apikey = mysql_result($result, 0, "apikey");
             $this->secret = mysql_result($result, 0, "secret");
-
+//$this->server = 'mandrill';
             // If no api credentials exist for Mailjet, create them
             if ($this->server == 'mailjet')
             {
