@@ -11,6 +11,7 @@ class MGLMailer
    private $logger = null;
    private $prev_client_id;
    private $server;
+   private $server_revert;
    private $tb_name;
    private $apikey;
    private $secret;
@@ -72,6 +73,7 @@ class MGLMailer
          $sqlConn = new MySQLConnection();
          $result = $sqlConn->execute($query);
          $this->server = 'insermo';
+         $this->server_revert = '';
 
          if (mysql_num_rows($result))
          {
@@ -100,6 +102,15 @@ class MGLMailer
                $this->mailjet->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
             }
          }
+      }
+
+      $to = $message->getTo();
+      list($to_name, $to_email) = array(end($to), key($to)); //mail('alex@myguestlist.com.au', 'MGLMailer', $to_email);
+
+      if (substr_count($to_email, '@bigpond') > 0)
+      {
+         $this->server_revert = $this->server;
+         $this->server = 'mailjet';
       }
 
       $this->prev_client_id = $client_id;
@@ -180,6 +191,12 @@ class MGLMailer
                      'exception' => $e->getMessage()
                   );
                //}
+            }
+            
+            if (!empty($this->server_revert))
+            {
+               $this->server = $this->server_revert;
+               $this->server_revert = '';
             }
 
             break;
