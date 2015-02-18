@@ -6,11 +6,12 @@ class MGLMailer
    private $lhost = null;
    private $mglold = null;
    private $insermo = null;
-   private $smtpcom = null;
+   private $smpro = null;
    private $mailjet = null;
    private $logger = null;
    private $prev_client_id;
    private $server;
+   private $server_revert;
    private $tb_name;
    private $apikey;
    private $secret;
@@ -21,9 +22,9 @@ class MGLMailer
       global $INSERMO_USERNAME;
       global $INSERMO_PASSWORD;
 
-      global $SMTPCOM_HOST;
-      global $SMTPCOM_USER;
-      global $SMTPCOM_PWORD;
+      global $SMPRO_HOST;
+      global $SMPRO_USER;
+      global $SMPRO_PWORD;
 
       $transport = Swift_SmtpTransport::newInstance('localhost', 25);
       $this->lhost = Swift_Mailer::newInstance($transport);
@@ -36,10 +37,10 @@ class MGLMailer
          ->setPassword($INSERMO_PASSWORD);
       $this->insermo = Swift_Mailer::newInstance($transport);
 
-      $transport = Swift_SmtpTransport::newInstance($SMTPCOM_HOST, 25)
-         ->setUsername($SMTPCOM_USER)
-         ->setPassword($SMTPCOM_PWORD);
-      $this->smtpcom = Swift_Mailer::newInstance($transport);
+      $transport = Swift_SmtpTransport::newInstance($SMPRO_HOST, 25)
+         ->setUsername($SMPRO_USER)
+         ->setPassword($SMPRO_PWORD);
+      $this->smpro = Swift_Mailer::newInstance($transport);
 
       $transport = Swift_SmtpTransport::newInstance("in.mailjet.com", 25)
          ->setUsername("e3be61b033af97b743e0a782f36d86a5")
@@ -50,7 +51,7 @@ class MGLMailer
       $this->lhost->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
       $this->mglold->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
       $this->insermo->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
-      $this->smtpcom->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
+      $this->smpro->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
       $this->mailjet->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
    }
 
@@ -72,6 +73,7 @@ class MGLMailer
          $sqlConn = new MySQLConnection();
          $result = $sqlConn->execute($query);
          $this->server = 'insermo';
+         $this->server_revert = '';
 
          if (mysql_num_rows($result))
          {
@@ -102,38 +104,50 @@ class MGLMailer
          }
       }
 
+      $to = $message->getTo();
+      list($to_name, $to_email) = array(end($to), key($to)); //mail('alex@myguestlist.com.au', 'MGLMailer', $to_email);
+
+      if (substr_count($to_email, '@bigpond') > 0)
+      {
+         $this->server_revert = $this->server;
+         $this->server = 'mailjet';
+      }
+
       $this->prev_client_id = $client_id;
       $result = false;
 
       switch ($this->server)
       {
-         case 'smtpcom' :
+         case 'smpro' :
             try
             {
-               $result = $this->smtpcom->send($message, $failures);
+               $headers = $message->getHeaders();
+               $list_id = $headers->get('X-Listid');
+               $list_id->setValue('MGL');
+               $result = $this->smpro->send($message, $failures); global $mail; $mail->notice($this->logger->dump());
             }
             catch (Exception $e)
             {
-               if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
-               {
-                  global $SMTPCOM_HOST;
-                  global $SMTPCOM_USERNAME;
-                  global $SMTPCOM_PASSWORD;
+               //if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
+               //{
+                  global $SMPRO_HOST;
+                  global $SMPRO_USER;
+                  global $SMPRO_PWORD;
 
-                  $transport = Swift_SmtpTransport::newInstance($SMTPCOM_HOST, 25)
-                     ->setUsername($SMTPCOM_USERNAME)
-                     ->setPassword($SMTPCOM_PASSWORD);
-                  $this->smtpcom = Swift_Mailer::newInstance($transport);
-                  $this->smtpcom->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
-               }
-               else
-               {
+                  $transport = Swift_SmtpTransport::newInstance($SMPRO_HOST, 25)
+                     ->setUsername($SMPRO_USER)
+                     ->setPassword($SMPRO_PWORD);
+                  $this->smpro = Swift_Mailer::newInstance($transport);
+                  $this->smpro->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
+               //}
+               //else
+               //{
                   return array(
                      'result' => false,
                      'email' => '',
                      'exception' => $e->getMessage()
                   );
-               }
+               //}
             }
 
             break;
@@ -160,22 +174,29 @@ class MGLMailer
             }
             catch (Exception $e)
             {
-               if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
-               {
+               //if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
+               //if (stristr($e->getMessage(), 'Expected response code'))
+               //{
                   $transport = Swift_SmtpTransport::newInstance("in.mailjet.com", 25)
                      ->setUsername($this->apikey)
                      ->setPassword($this->secret);
                   $this->mailjet = Swift_Mailer::newInstance($transport);
                   $this->mailjet->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
-               }
-               else
-               {
+               //}
+               //else
+               //{
                   return array(
                      'result' => false,
                      'email' => '',
                      'exception' => $e->getMessage()
                   );
-               }
+               //}
+            }
+            
+            if (!empty($this->server_revert))
+            {
+               $this->server = $this->server_revert;
+               $this->server_revert = '';
             }
 
             break;
@@ -238,8 +259,9 @@ class MGLMailer
             }
             catch (Exception $e)
             {
-               if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
-               {
+               //if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
+               //if (stristr($e->getMessage(), 'Expected response code'))
+               //{
                   global $INSERMO_HOST;
                   global $INSERMO_USERNAME;
                   global $INSERMO_PASSWORD;
@@ -249,15 +271,15 @@ class MGLMailer
                      ->setPassword($INSERMO_PASSWORD);
                   $this->insermo = Swift_Mailer::newInstance($transport);
                   $this->insermo->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
-               }
-               else
-               {
+               //}
+               //else
+               //{
                   return array(
                      'result' => false,
                      'email' => '',
                      'exception' => $e->getMessage()
                   );
-               }
+               //}
             }
 
             break;

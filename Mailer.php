@@ -7,6 +7,7 @@ class Mailer
    private $mgl = null;
    private $mailjet = null;
    private $mandrill = null;
+   private $smpro = null;
    private $prev_client_id;
    private $server;
    private $vmta;
@@ -81,12 +82,28 @@ class Mailer
 
             break;
          case 'mandrill' :
-            //$femail = $this->tb_name . '@clients.myguestlist.com.au';
-            //$message->setFrom(array($femail => $campaign_data['from_name']));
-
             $headers = $message->getHeaders();
             $headers->addTextHeader('X-MC-Tags', 'campaign'); // Temp way of distinguishing between campaign and transactions email
             $headers->addTextHeader('X-MC-Metadata', json_encode(array('mid' => $campaign_data['message_id'], 'pid' => $campaign_data['patron_id'])));
+
+            break;
+         case 'smpro' :
+            $headers = $message->getHeaders();
+            $headers->addTextHeader('X-Listid', 'MGL');
+            $headers->addTextHeader('X-MGLMsgID', $campaign_data['message_id']);
+            $headers->addTextHeader('X-CampaignID', $campaign_data['message_id']);
+            $headers->addTextHeader('X-MGLPatronID', $campaign_data['patron_id']);
+            $headers->addTextHeader('X-PatronID', $campaign_data['patron_id']);
+            $headers->addTextHeader('X-MsgID', $campaign_data['message_id'] . "." . $campaign_data['patron_id']);
+
+            // Remove text part as SMPRO mail relay doesn't support multi-part
+            $parts = $message->getChildren();
+
+            foreach ($parts as $part)
+            {
+               if ($part->getContentType() == 'text/plain')
+                  $message->detach($part);
+            }
 
             break;
          case 'mgl' :
@@ -171,6 +188,21 @@ class Mailer
             return $this->mandrill;
 
             break;
+         case 'smpro' :
+            if ($this->smpro == null)
+            {
+               global $SMPRO_HOST, $SMPRO_USER, $SMPRO_PWORD;
+
+               $transport = Swift_SmtpTransport::newInstance($SMPRO_HOST, 25)
+                  ->setUsername($SMPRO_USER)
+                  ->setPassword($SMPRO_PWORD);
+               $this->smpro = Swift_Mailer::newInstance($transport);
+               $this->smpro->registerPlugin(new Swift_Plugins_AntiFloodPlugin(200, 2));
+            }
+
+            return $this->smpro;
+
+            break;
          case 'mgl' :
          default :
             if ($this->mgl == null)
@@ -198,6 +230,10 @@ class Mailer
             $this->mandrill = null;
 
             break;
+         case 'smpro' :
+            $this->smpro = null;
+
+            break;
          case 'mgl' :
          default:
             $this->mgl = null;
@@ -208,3 +244,4 @@ class Mailer
 }
 
 ?>
+
