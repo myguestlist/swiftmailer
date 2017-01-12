@@ -88,6 +88,11 @@ class Mailer
 
             break;
          case 'smpro' :
+            if (substr_count($campaign_data['from_email'], '@clients.myguestlist.com.au') > 0 && !empty($client_email))
+            {
+               $femail = $client_email;
+               $message->setFrom(array($femail => $campaign_data['from_name']));
+            }
             $headers = $message->getHeaders();
             $headers->addTextHeader('X-Listid', 'MGL');
             $headers->addTextHeader('X-MGLMsgID', $campaign_data['message_id']);
