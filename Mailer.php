@@ -12,6 +12,7 @@ class Mailer
    private $server;
    private $vmta;
    private $tb_name;
+   private $client_email;
    private $apikey;
    private $secret;
 
@@ -36,7 +37,7 @@ class Mailer
          $sqlConn = new MySQLConnection();
          $result = $sqlConn->execute($query);
          $this->server = 'mgl';
-         $client_email = false;
+         $this->client_email = false;
 
          if (mysql_num_rows($result))
          {
@@ -45,7 +46,7 @@ class Mailer
             $this->tb_name = mysql_result($result, 0, "username");
             $this->apikey = mysql_result($result, 0, "apikey");
             $this->secret = mysql_result($result, 0, "secret");
-            $client_email = mysql_result($result, 0, "email");
+            $this->client_email = mysql_result($result, 0, "email");
 
             // If no api credentials exist for Mailjet, create them
             if ($this->server == 'mailjet')
@@ -90,9 +91,9 @@ class Mailer
 
             break;
          case 'smpro' :
-            if (substr_count($campaign_data['from_email'], '@clients.myguestlist.com.au') > 0 && !empty($client_email))
+            if (substr_count($campaign_data['from_email'], '@clients.myguestlist.com.au') > 0 && !empty($this->client_email))
             {
-               $femail = $client_email;
+               $femail = $this->client_email;
                $message->setFrom(array($femail => $campaign_data['from_name']));
             }
             $headers = $message->getHeaders();
