@@ -27,7 +27,7 @@ class Mailer
       // Get client smtp details
       if ($client_id != $this->prev_client_id)
       {
-         $query = "SELECT cs.smtp, cs.vmta, c.username, m.apikey, m.secret
+         $query = "SELECT cs.smtp, cs.vmta, c.username, c.email, m.apikey, m.secret
                FROM clients_smtp cs
                JOIN clients c ON c.id = cs.client_id
                LEFT JOIN mailjet_credentials m ON cs.client_id = m.client_id
@@ -36,6 +36,7 @@ class Mailer
          $sqlConn = new MySQLConnection();
          $result = $sqlConn->execute($query);
          $this->server = 'mgl';
+         $client_email = false;
 
          if (mysql_num_rows($result))
          {
@@ -44,6 +45,7 @@ class Mailer
             $this->tb_name = mysql_result($result, 0, "username");
             $this->apikey = mysql_result($result, 0, "apikey");
             $this->secret = mysql_result($result, 0, "secret");
+            $client_email = mysql_result($result, 0, "email");
 
             // If no api credentials exist for Mailjet, create them
             if ($this->server == 'mailjet')
