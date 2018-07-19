@@ -6,6 +6,7 @@ class Mailer
 {
    private $mgl = null;
    private $mailjet = null;
+   private $mailjet_v3 = null;
    private $mandrill = null;
    private $smpro = null;
    private $prev_client_id;
@@ -15,6 +16,8 @@ class Mailer
    private $client_email;
    private $apikey;
    private $secret;
+   private $mj_apikey_3;
+   private $mj_secret_3;
 
    public function __construct() { }
 
@@ -28,11 +31,12 @@ class Mailer
       // Get client smtp details
       if ($client_id != $this->prev_client_id)
       {
-         $query = "SELECT cs.smtp, cs.vmta, c.username, c.email, m.apikey, m.secret
-               FROM clients_smtp cs
-               JOIN clients c ON c.id = cs.client_id
-               LEFT JOIN mailjet_credentials m ON cs.client_id = m.client_id
-               WHERE cs.client_id = '$client_id';";
+            $query = "SELECT cs.smtp, cs.vmta, c.username, c.email, m1.apikey as apikey_1, m1.secret as secret_1, m3.apikey as apikey_3, m3.secret as secret_3
+            FROM clients_smtp cs
+            JOIN clients c ON c.id = cs.client_id
+            LEFT JOIN mailjet_credentials m1 ON cs.client_id = m1.client_id AND m1.version = 1
+            LEFT JOIN mailjet_credentials m3 ON cs.client_id = m3.client_id AND m3.version = 3
+            WHERE cs.client_id = '$client_id';";
 
          $sqlConn = new MySQLConnection();
          $result = $sqlConn->execute($query);
@@ -44,8 +48,10 @@ class Mailer
             $this->server = mysql_result($result, 0, "smtp");
             $this->vmta = mysql_result($result, 0, "vmta");
             $this->tb_name = mysql_result($result, 0, "username");
-            $this->apikey = mysql_result($result, 0, "apikey");
-            $this->secret = mysql_result($result, 0, "secret");
+            $this->apikey = mysql_result($result, 0, "apikey_1");
+            $this->secret = mysql_result($result, 0, "secret_1");
+            $this->mj_apikey_3 = mysql_result($result, 0, "apikey_3");
+            $this->mj_secret_3 = mysql_result($result, 0, "secret_3");
             $this->client_email = mysql_result($result, 0, "email");
 
             // If no api credentials exist for Mailjet, create them
@@ -63,7 +69,22 @@ class Mailer
                }
 
                $this->_null_smtp($this->server);
-            }
+            } 
+            else if ($this->server == 'mailjet_v3')
+            {
+               if (empty($this->mj_apikey_3))
+               {
+                     require_once '/var/www/html/mgl/lib/mailjet/MGLMailjet.v3.class.php';
+   
+                     $mj = new MGLMailjetV3();
+                     $api_details = $mj->create_apikey($this->tb_name, $client_id);
+   
+                     $this->mj_apikey_3 = $api_details->apikey;
+                     $this->mj_secret_3 = $api_details->secretkey;
+               }
+   
+               $this->_null_smtp($this->server);
+               }
          }
       }
 
@@ -73,6 +94,7 @@ class Mailer
       switch ($this->server)
       {
          case 'mailjet' :
+         case 'mailjet_v3':
             if ($this->tb_name != 'impos' && substr_count($campaign_data['from_email'], '@clients.myguestlist.com.au') == 0)
             {
                $femail = $this->tb_name . '@clients.myguestlist.com.au';
@@ -181,6 +203,21 @@ class Mailer
             return $this->mailjet;
 
             break;
+         case 'mailjet_v3':
+            if ($this->mailjet_v3 == null)
+            {
+               global $MAILJET_HOST;
+
+               $transport = Swift_SmtpTransport::newInstance($MAILJET_HOST, 25)
+                  ->setUsername($this->mj_apikey_3)
+                  ->setPassword($this->mj_secret_3);
+               $this->mailjet_v3 = Swift_Mailer::newInstance($transport);
+               $this->mailjet_v3->registerPlugin(new Swift_Plugins_AntiFloodPlugin(200, 2));
+            }
+
+            return $this->mailjet_v3;
+
+            break;
          case 'mandrill' :
             if ($this->mandrill == null)
             {
@@ -232,6 +269,10 @@ class Mailer
       {
          case 'mailjet' :
             $this->mailjet = null;
+
+            break;
+         case 'mailjet_v3' :
+            $this->mailjet_v3 = null;
 
             break;
          case 'mandrill' :
