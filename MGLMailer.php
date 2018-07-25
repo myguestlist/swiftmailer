@@ -8,6 +8,7 @@ class MGLMailer
    private $insermo = null;
    private $smpro = null;
    private $mailjet = null;
+   private $mailjet_v3 = null;
    private $logger = null;
    private $prev_client_id;
    private $server;
@@ -15,6 +16,8 @@ class MGLMailer
    private $tb_name;
    private $apikey;
    private $secret;
+   private $mj_apikey_3;
+   private $mj_secret_3;
 
    public function __construct()
    {
@@ -64,11 +67,12 @@ class MGLMailer
    {
       if ($client_id != $this->prev_client_id)
       {
-         $query = "SELECT cs.smtp, c.username, m.apikey, m.secret
-               FROM clients_smtp cs
-               JOIN clients c ON c.id = cs.client_id
-               LEFT JOIN mailjet_credentials m ON cs.client_id = m.client_id
-               WHERE cs.client_id = '$client_id';";
+            $query = "SELECT cs.smtp, cs.vmta, c.username, c.email, m1.apikey as apikey_1, m1.secret as secret_1, m3.apikey as apikey_3, m3.secret as secret_3
+            FROM clients_smtp cs
+            JOIN clients c ON c.id = cs.client_id
+            LEFT JOIN mailjet_credentials m1 ON cs.client_id = m1.client_id AND m1.version = 1
+            LEFT JOIN mailjet_credentials m3 ON cs.client_id = m3.client_id AND m3.version = 3
+            WHERE cs.client_id = '$client_id';";
 
          $sqlConn = new MySQLConnection();
          $result = $sqlConn->execute($query);
@@ -79,8 +83,10 @@ class MGLMailer
          {
             $this->server = mysql_result($result, 0, "smtp");
             $this->tb_name = mysql_result($result, 0, "username");
-            $this->apikey = mysql_result($result, 0, "apikey");
-            $this->secret = mysql_result($result, 0, "secret");
+            $this->apikey = mysql_result($result, 0, "apikey_1");
+            $this->secret = mysql_result($result, 0, "secret_1");
+            $this->mj_apikey_3 = mysql_result($result, 0, "apikey_3");
+            $this->mj_secret_3 = mysql_result($result, 0, "secret_3");
 
             if ($this->server == 'mailjet')
             {
@@ -98,6 +104,25 @@ class MGLMailer
                $transport = Swift_SmtpTransport::newInstance("in.mailjet.com", 25)
                   ->setUsername($this->apikey)
                   ->setPassword($this->secret);
+               $this->mailjet = Swift_Mailer::newInstance($transport);
+               $this->mailjet->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
+            } 
+            else if ($this->server == 'mailjet_v3')
+            {
+               if (empty($this->mj_apikey_3))
+               {
+                  require_once '/var/www/html/mgl/lib/mailjet/MGLMailjet.v3.class.php';
+
+                  $mj = new MGLMailjetV3();
+                  $api_details = $mj->create_apikey($this->tb_name, $client_id);
+
+                  $this->mj_apikey_3 = $api_details->apikey;
+                  $this->mj_secret_3 = $api_details->secretkey;
+               }
+
+               $transport = Swift_SmtpTransport::newInstance("in.mailjet.com", 25)
+                  ->setUsername($this->mj_apikey_3)
+                  ->setPassword($this->mj_secret_3);
                $this->mailjet = Swift_Mailer::newInstance($transport);
                $this->mailjet->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
             }
@@ -153,6 +178,7 @@ class MGLMailer
             break;
 
          case 'mailjet' :
+         case 'mailjet_v3':
             try
             {
                $from = $message->getFrom();
@@ -177,9 +203,15 @@ class MGLMailer
                //if (stristr($e->getMessage(), 'Expected response code 250 but got code "", with message ""'))
                //if (stristr($e->getMessage(), 'Expected response code'))
                //{
-                  $transport = Swift_SmtpTransport::newInstance("in.mailjet.com", 25)
-                     ->setUsername($this->apikey)
-                     ->setPassword($this->secret);
+                  if ($this->server == "mailjet")
+                        $transport = Swift_SmtpTransport::newInstance("in.mailjet.com", 25)
+                        ->setUsername($this->apikey)
+                        ->setPassword($this->secret);
+                  else {
+                        $transport = Swift_SmtpTransport::newInstance("in.mailjet.com", 25)
+                        ->setUsername($this->mj_apikey_3)
+                        ->setPassword($this->mj_apikey_3);
+                  }
                   $this->mailjet = Swift_Mailer::newInstance($transport);
                   $this->mailjet->registerPlugin(new Swift_Plugins_LoggerPlugin($this->logger));
                //}
