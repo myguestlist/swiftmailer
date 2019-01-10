@@ -55,22 +55,7 @@ class Mailer
             $this->client_email = mysql_result($result, 0, "email");
 
             // If no api credentials exist for Mailjet, create them
-            if ($this->server == 'mailjet')
-            {
-               if (empty($this->apikey))
-               {
-                  require_once '/var/www/html/mgl/lib/mailjet/MGLMailjet.class.php';
-
-                  $mj = new MGLMailjet();
-                  $api_details = $mj->create_apikey($this->tb_name, $client_id);
-
-                  $this->apikey = $api_details->apikey;
-                  $this->secret = $api_details->secretkey;
-               }
-
-               $this->_null_smtp($this->server);
-            } 
-            else if ($this->server == 'mailjet_v3')
+            if ($this->server == 'mailjet_v3')
             {
                if (empty($this->mj_apikey_3))
                {
@@ -93,7 +78,6 @@ class Mailer
       // Set the appropriate headers for the smtp being used
       switch ($this->server)
       {
-         case 'mailjet' :
          case 'mailjet_v3':
             if ($this->tb_name != 'impos' && substr_count($campaign_data['from_email'], '@clients.myguestlist.com.au') == 0)
             {
@@ -136,6 +120,8 @@ class Mailer
             }
 
             break;
+         
+         case 'mailjet' :
          case 'mgl' :
          default :
             $headers = $message->getHeaders();
@@ -188,21 +174,6 @@ class Mailer
    {
       switch ($this->server)
       {
-         case 'mailjet' :
-            if ($this->mailjet == null)
-            {
-               global $MAILJET_HOST;
-
-               $transport = Swift_SmtpTransport::newInstance($MAILJET_HOST, 25)
-                  ->setUsername($this->apikey)
-                  ->setPassword($this->secret);
-               $this->mailjet = Swift_Mailer::newInstance($transport);
-               $this->mailjet->registerPlugin(new Swift_Plugins_AntiFloodPlugin(200, 2));
-            }
-
-            return $this->mailjet;
-
-            break;
          case 'mailjet_v3':
             if ($this->mailjet_v3 == null)
             {
@@ -249,6 +220,7 @@ class Mailer
 
             break;
          case 'mgl' :
+         case 'mailjet' :
          default :
             if ($this->mgl == null)
             {
