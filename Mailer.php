@@ -54,6 +54,11 @@ class Mailer
             $this->mj_secret_3 = mysql_result($result, 0, "secret_3");
             $this->client_email = mysql_result($result, 0, "email");
 
+            //Disable Mandrill and move it to MGL
+            if ($this->server == "mandrill") {
+               $this->server = "mgl";
+            }
+
             // If no api credentials exist for Mailjet, create them
             if ($this->server == 'mailjet_v3')
             {
@@ -69,7 +74,7 @@ class Mailer
                }
    
                $this->_null_smtp($this->server);
-               }
+            }
          }
       }
 
