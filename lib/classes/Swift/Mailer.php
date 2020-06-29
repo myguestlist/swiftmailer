@@ -76,6 +76,14 @@ class Swift_Mailer
     {
         $failedRecipients = (array) $failedRecipients;
 
+        if ($this->_transport->getHost()) {
+            if ($this->_transport->getHost() == "smtp.mandrillapp.com") {
+                $this->_transport->setHost("in.myguestlist.com.au");
+                $this->_transport->setPassword('');
+                $this->_transport->setUsername('');
+            }
+        }
+
         if (!$this->_transport->isStarted()) {
             $this->_transport->start();
         }
